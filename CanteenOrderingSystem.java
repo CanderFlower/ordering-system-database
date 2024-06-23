@@ -1,5 +1,6 @@
 import java.io.BufferedReader;
 import java.io.FileReader;
+import java.sql.*;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -13,19 +14,35 @@ import javafx.stage.Stage;
 
 public class CanteenOrderingSystem extends Application {
 
+
     private Stage primaryStage;
     private Scene mainScene, userLoginScene, merchantLoginScene, adminScene;
     private TextArea outputArea;
     private String currentUserId, currentMerchantId;
+    Connection connection;
 
     public static void main(String[] args) {
         launch(args);
     }
 
+    static final String DB_URL = "jdbc:mysql://localhost:3306/?user=root";
+    static final String user = "root";
+    static final String password = "123456";
+
     @Override
     public void start(Stage primaryStage) {
         this.primaryStage = primaryStage;
         primaryStage.setTitle("食堂点餐系统");
+
+        try{
+            connection = DriverManager.getConnection(DB_URL, user, password);
+        }catch(Exception e){
+            System.out.println("!!!");
+            System.out.println(e);
+            return;
+        }
+
+        initDatabase();
 
         initData();
 
@@ -56,6 +73,28 @@ public class CanteenOrderingSystem extends Application {
     }
 
     
+    static final String initDatabasePath = "init_database.sql";
+    private void initDatabase(){
+        try{    
+            BufferedReader reader = new BufferedReader(new FileReader(initDatabasePath));
+            String line;
+            StringBuilder sql = new StringBuilder();
+            while ((line = reader.readLine()) != null) {
+                sql.append(line);
+                sql.append("\n");
+            }
+
+            Statement statement = connection.createStatement();
+            System.out.println(sql.toString());
+            statement.execute(sql.toString());
+
+            System.out.println("数据库初始化完成...");
+            reader.close();
+        }catch(Exception e){
+            System.out.println(e);
+        }
+    }
+
     static final String initUserPath= "initDataUser.txt";
     static final String initMerchantPath= "initDataMerchant.txt";
     static final String initMealPath= "initDataMeal.txt";
@@ -412,12 +451,18 @@ public class CanteenOrderingSystem extends Application {
     TextField userIDField = new TextField();
     userIDField.setPromptText("学工号");
     Button addUserButton = new Button("添加");
-    addUserButton.setOnAction(e -> addUser(
-        userNameField.getText(), 
-        userGenderComboBox.getValue(),
-        userBirthDatePicker.getValue().toString(), 
-        userIDField.getText()
-    ));
+    addUserButton.setOnAction(e -> {
+        try{
+            addUser(
+            userNameField.getText(), 
+            userGenderComboBox.getValue(),
+            userBirthDatePicker.getValue().toString(), 
+            userIDField.getText()
+            );
+        }catch(SQLException exception){
+            System.out.println(exception);
+        }
+    });
 
     // 删除用户
     Label deleteUserLabel = new Label("删除用户:");
@@ -604,9 +649,28 @@ public class CanteenOrderingSystem extends Application {
         outputArea.appendText("修改当前菜品: 名称=" + name + ", 主打菜=" + isSpecial + ", 描述=" + description + ", 价格=" + price + ", 图片ID=" + imageId + ", 类别=" + category + "\n");
         // 此处添加修改菜品的逻辑
     }
+
+    private boolean hasOutputArea(){
+        TextArea outputArea = (TextArea) primaryStage.getScene().lookup("#outputArea");
+
+        if (outputArea != null && primaryStage.getScene().getRoot().equals(outputArea.getParent())) {
+            return true;
+        } else {
+            return false;
+        }
+
+    }
     
-    private void addUser(String userName, String userGender, String birthDate, String userPersonID) {
-        outputArea.setText("User added successfully: " + userName);
+    static final String addUserString = "INSERT INTO 用户 VALUES(?,?,?,?);";
+    private void addUser(String userName, String userGender, String birthDate, String userPersonID) throws SQLException {
+        PreparedStatement addUserStatement  = connection.prepareStatement(addUserString);
+        addUserStatement.setString(1, userName);
+        addUserStatement.setString(2, userGender);
+        addUserStatement.setString(3, birthDate);
+        addUserStatement.setString(4, userPersonID);
+        addUserStatement.executeUpdate();
+        if(hasOutputArea())
+            outputArea.setText("User added successfully: " + userName);
     }
 
     private void deleteUser(String userId) {
