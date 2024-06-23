@@ -2,10 +2,17 @@
     "configurations": [
         {
             "type": "java",
-            "name": "Game",
+            "name": "CateringManagementSystem",
             "request": "launch",
-            "mainClass": "Game",
-            "projectName": "final_game_project_3ab6376d",
+            "mainClass": "CateringManagementSystem",
+            "projectName": "Project_3e5993c8"
+        },
+        {
+            "type": "java",
+            "name": "CanteenOrderingSystem",
+            "request": "launch",
+            "mainClass": "CanteenOrderingSystem",
+            "projectName": "Project_3e5993c8",
             "vmArgs": "--module-path \"D:\\Programs\\javafx-sdk-21.0.2\\lib\" --add-modules javafx.base,javafx.controls,javafx.fxml,javafx.graphics,javafx.media,javafx.web"
         }
     ]
