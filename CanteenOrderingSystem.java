@@ -79,14 +79,17 @@ public class CanteenOrderingSystem extends Application {
             BufferedReader reader = new BufferedReader(new FileReader(initDatabasePath));
             String line;
             StringBuilder sql = new StringBuilder();
+            Statement statement = connection.createStatement();
             while ((line = reader.readLine()) != null) {
                 sql.append(line);
-                sql.append("\n");
+                if(line.endsWith(";")){
+                    statement.execute(sql.toString());
+                    sql = new StringBuilder();
+                }
+                //sql.append("\n");
             }
 
-            Statement statement = connection.createStatement();
-            System.out.println(sql.toString());
-            statement.execute(sql.toString());
+            //statement.execute(sql.toString());
 
             System.out.println("数据库初始化完成...");
             reader.close();
@@ -113,6 +116,7 @@ public class CanteenOrderingSystem extends Application {
                 addUser(args[0], args[1], args[2], args[3]);
             }
             br.close();
+            System.out.println("用户初始数据加载完成...");
         }catch(Exception e){
             System.out.println(e);
         }
@@ -160,7 +164,11 @@ public class CanteenOrderingSystem extends Application {
         Button loginButton = new Button("登录");
         loginButton.setOnAction(e -> {
             currentUserId = userIdField.getText();
-            primaryStage.setScene(createUserScene());
+            try{
+                primaryStage.setScene(createUserScene());
+            }catch(Exception err){
+                System.out.println(err);
+            }
         });
 
         layout.getChildren().addAll(backButton, userIdLabel, userIdField, loginButton);
@@ -186,7 +194,7 @@ public class CanteenOrderingSystem extends Application {
         return new Scene(layout, 300, 200);
     }
 
-    private Scene createUserScene() {
+    private Scene createUserScene() throws SQLException{
         VBox layout = new VBox(10);
         layout.setPadding(new Insets(10));
 
@@ -200,7 +208,13 @@ public class CanteenOrderingSystem extends Application {
 
         Label accountInfoLabel = new Label("用户信息:");
         Button viewAccountInfoButton = new Button("查看");
-        viewAccountInfoButton.setOnAction(e -> viewAccountInfo());
+        viewAccountInfoButton.setOnAction(e -> {
+            try {
+                viewAccountInfo();
+            } catch (SQLException e1) {
+                System.out.println(e1);
+            }
+        });
 
         Label searchMerchantLabel = new Label("搜索商户:");
         TextField searchMerchantField = new TextField();
@@ -574,8 +588,20 @@ public class CanteenOrderingSystem extends Application {
     return new Scene(layout, 800, 600);
 }
 
-    private void viewAccountInfo() {
-        outputArea.setText("TODO: Display user account information for user ID: " + currentUserId);
+    static final String viewAccountInfoString = "SELECT * FROM 用户 WHERE id=?;";
+    private void viewAccountInfo() throws SQLException{
+        StringBuilder sb = new StringBuilder();
+        PreparedStatement viewAccountInfoStatement = connection.prepareStatement(viewAccountInfoString);
+        viewAccountInfoStatement.setInt(1, Integer.parseInt(currentUserId));
+        ResultSet res = viewAccountInfoStatement.executeQuery();
+        res.next();
+        sb.append("UserID: "+res.getString("id")+"\n");
+        sb.append("名称: "+res.getString("名称")+"\n");
+        sb.append("出生日期: "+res.getString("出生日期")+"\n");
+        sb.append("学工号: "+res.getString("学工号")+"\n");
+        outputArea.setText(sb.toString());
+        res.close();
+        viewAccountInfoStatement.close();
     }
 
     private void searchMerchants(String merchantName) {
@@ -650,18 +676,8 @@ public class CanteenOrderingSystem extends Application {
         // 此处添加修改菜品的逻辑
     }
 
-    private boolean hasOutputArea(){
-        TextArea outputArea = (TextArea) primaryStage.getScene().lookup("#outputArea");
-
-        if (outputArea != null && primaryStage.getScene().getRoot().equals(outputArea.getParent())) {
-            return true;
-        } else {
-            return false;
-        }
-
-    }
     
-    static final String addUserString = "INSERT INTO 用户 VALUES(?,?,?,?);";
+    static final String addUserString = "INSERT INTO 用户 (名称,性别,出生日期,学工号) VALUES(?,?,?,?);";
     private void addUser(String userName, String userGender, String birthDate, String userPersonID) throws SQLException {
         PreparedStatement addUserStatement  = connection.prepareStatement(addUserString);
         addUserStatement.setString(1, userName);
@@ -669,8 +685,7 @@ public class CanteenOrderingSystem extends Application {
         addUserStatement.setString(3, birthDate);
         addUserStatement.setString(4, userPersonID);
         addUserStatement.executeUpdate();
-        if(hasOutputArea())
-            outputArea.setText("User added successfully: " + userName);
+        addUserStatement.close();
     }
 
     private void deleteUser(String userId) {

@@ -1,5 +1,7 @@
-CREATE DATABASE `canteen`;
-USE `canteen`;
+DROP DATABASE IF EXISTS canteen;
+
+CREATE DATABASE canteen;
+USE canteen;
 
 CREATE TABLE `”√ªß` (
 	`id` INT NOT NULL AUTO_INCREMENT UNIQUE,
