@@ -4,6 +4,7 @@ import java.sql.*;
 import java.util.ArrayList;
 import java.util.List;
 
+
 import javafx.application.Application;
 import javafx.geometry.Insets;
 import javafx.scene.Scene;
@@ -131,6 +132,7 @@ public class CanteenOrderingSystem extends Application {
                 addMerchant(args[0], args[1]);
             }
             br.close();
+            System.out.println("商户初始数据加载完成...");
         }catch(Exception e){
             System.out.println(e);
         }
@@ -138,15 +140,20 @@ public class CanteenOrderingSystem extends Application {
 
     private void initMeal(){
         try{
-            BufferedReader br = new BufferedReader(new FileReader(initMealPath));
-            String buf;
-            while((buf = br.readLine())!=null){
-                String[] args = buf.split(" ");
-                String merchantID = String.valueOf(getMerchantID(args[1]));
-                createDish(args[0], merchantID, args[2].equals("1"), args[3], args[4], 
-                args[5], args[6]);
+            try (BufferedReader br = new BufferedReader(new FileReader(initMealPath))) {
+                String buf;
+                while((buf = br.readLine())!=null){
+                    String[] args = buf.split(" ");
+                    int merchantID = getMerchantID(args[1]);
+                    if(merchantID==-1){
+                        System.out.println("没找到商家!");
+                        return;
+                    }
+                    createDish(args[0], String.valueOf(merchantID), args[2].equals("1"), args[3], args[4], 
+                    args[5], args[6]);
+                }
+                br.close();
             }
-            br.close();
         }catch(Exception e){
             System.out.println(e);
         }
@@ -162,16 +169,21 @@ public class CanteenOrderingSystem extends Application {
         Label userIdLabel = new Label("输入ID:");
         TextField userIdField = new TextField();
         Button loginButton = new Button("登录");
+        Label userLoginMessage = new Label();
         loginButton.setOnAction(e -> {
             currentUserId = userIdField.getText();
             try{
-                primaryStage.setScene(createUserScene());
+                if(!userIDExists(currentUserId)){
+                    userLoginMessage.setText("No Such user!");
+                }else{
+                    primaryStage.setScene(createUserScene());
+                }
             }catch(Exception err){
                 System.out.println(err);
             }
         });
 
-        layout.getChildren().addAll(backButton, userIdLabel, userIdField, loginButton);
+        layout.getChildren().addAll(backButton, userIdLabel, userIdField, loginButton, userLoginMessage);
         return new Scene(layout, 300, 200);
     }
 
@@ -224,7 +236,7 @@ public class CanteenOrderingSystem extends Application {
 
         Label merchantDetailLabel = new Label("查看商户详情:");
         TextField merchantIdField = new TextField();
-        merchantIdField.setPromptText("商户ID");
+        merchantIdField.setPromptText("商户名称");
         Button merchantDetailButton = new Button("查看");
         merchantDetailButton.setOnAction(e -> viewMerchantDetail(merchantIdField.getText()));
 
@@ -339,7 +351,13 @@ public class CanteenOrderingSystem extends Application {
     
         Label accountInfoLabel = new Label("账号信息:");
         Button viewAccountInfoButton = new Button("查看");
-        viewAccountInfoButton.setOnAction(e -> viewMerchantAccountInfo());
+        viewAccountInfoButton.setOnAction(e -> {
+            try {
+                viewMerchantAccountInfo();
+            } catch (SQLException e1) {
+                System.out.println(e1);
+            }
+        });
     
         Label sendMessageLabel = new Label("发送消息:");
         TextField sendMessageField = new TextField();
@@ -425,168 +443,186 @@ public class CanteenOrderingSystem extends Application {
     }
     
     private Scene createAdminScene() {
-    VBox layout = new VBox(10);
-    layout.setPadding(new Insets(10));
+        VBox layout = new VBox(10);
+        layout.setPadding(new Insets(10));
 
-    Button backButton = new Button("返回");
-    backButton.setOnAction(e -> primaryStage.setScene(mainScene));
+        Button backButton = new Button("返回");
+        backButton.setOnAction(e -> primaryStage.setScene(mainScene));
 
-    GridPane grid = new GridPane();
-    grid.setPadding(new Insets(10));
-    grid.setVgap(10);
-    grid.setHgap(10);
+        GridPane grid = new GridPane();
+        grid.setPadding(new Insets(10));
+        grid.setVgap(10);
+        grid.setHgap(10);
 
-    // 新增商户
-    Label addMerchantLabel = new Label("新增商户:");
-    TextField merchantNameField = new TextField();
-    merchantNameField.setPromptText("名称");
-    TextField merchantAddressField = new TextField();
-    merchantAddressField.setPromptText("地址");
-    Button addMerchantButton = new Button("添加");
-    addMerchantButton.setOnAction(e -> addMerchant(
-        merchantNameField.getText(), 
-        merchantAddressField.getText()
-    ));
+        outputArea = new TextArea();
+        outputArea.setPrefHeight(200);
 
-    // 删除商户
-    Label deleteMerchantLabel = new Label("删除商户:");
-    TextField deleteMerchantField = new TextField();
-    deleteMerchantField.setPromptText("商户ID");
-    Button deleteMerchantButton = new Button("删除");
-    deleteMerchantButton.setOnAction(e -> deleteMerchant(deleteMerchantField.getText()));
+        // 新增商户
+        Label addMerchantLabel = new Label("新增商户:");
+        TextField merchantNameField = new TextField();
+        merchantNameField.setPromptText("名称");
+        TextField merchantAddressField = new TextField();
+        merchantAddressField.setPromptText("地址");
+        Button addMerchantButton = new Button("添加");
+        addMerchantButton.setOnAction(e -> {
+            try{
+                addMerchant(
+                    merchantNameField.getText(), 
+                    merchantAddressField.getText()
+                    );
+                outputArea.setText("商户ID: "+getMerchantID(merchantNameField.getText())+" 添加成功!");
+                System.out.println("1111");
+            }catch(Exception exc){
+                System.out.println(exc);
+            }
+        });
 
-    // 新增用户
-    Label addUserLabel = new Label("新增用户:");
-    TextField userNameField = new TextField();
-    userNameField.setPromptText("名称");
-    ComboBox<String> userGenderComboBox = new ComboBox<>();
-    userGenderComboBox.getItems().addAll("男", "女");
-    DatePicker userBirthDatePicker = new DatePicker();
-    TextField userIDField = new TextField();
-    userIDField.setPromptText("学工号");
-    Button addUserButton = new Button("添加");
-    addUserButton.setOnAction(e -> {
-        try{
-            addUser(
-            userNameField.getText(), 
-            userGenderComboBox.getValue(),
-            userBirthDatePicker.getValue().toString(), 
-            userIDField.getText()
-            );
-        }catch(SQLException exception){
-            System.out.println(exception);
-        }
-    });
+        // 删除商户
+        Label deleteMerchantLabel = new Label("删除商户:");
+        TextField deleteMerchantField = new TextField();
+        deleteMerchantField.setPromptText("商户名称");
+        Button deleteMerchantButton = new Button("删除");
+        deleteMerchantButton.setOnAction(e -> deleteMerchant(deleteMerchantField.getText()));
 
-    // 删除用户
-    Label deleteUserLabel = new Label("删除用户:");
-    TextField deleteUserField = new TextField();
-    deleteUserField.setPromptText("用户ID");
-    Button deleteUserButton = new Button("删除");
-    deleteUserButton.setOnAction(e -> deleteUser(deleteUserField.getText()));
+        // 新增用户
+        Label addUserLabel = new Label("新增用户:");
+        TextField userNameField = new TextField();
+        userNameField.setPromptText("名称");
+        ComboBox<String> userGenderComboBox = new ComboBox<>();
+        userGenderComboBox.getItems().addAll("男", "女");
+        DatePicker userBirthDatePicker = new DatePicker();
+        TextField userIDField = new TextField();
+        userIDField.setPromptText("学工号");
+        Button addUserButton = new Button("添加");
+        addUserButton.setOnAction(e -> {
+            try{
+                addUser(
+                    userNameField.getText(), 
+                    userGenderComboBox.getValue(),
+                    userBirthDatePicker.getValue().toString(), 
+                    userIDField.getText()
+                );
+            }catch(Exception exception){
+                System.out.println(exception);
+            }
+        });
 
-    // 添加其余标签和字段
-    Label analyzeDishLabel = new Label("分析菜品数据:");
-    TextField analyzeDishField = new TextField();
-    analyzeDishField.setPromptText("菜品ID");
-    Button analyzeDishButton = new Button("分析");
-    analyzeDishButton.setOnAction(e -> analyzeDishData(analyzeDishField.getText()));
+        // 删除用户
+        Label deleteUserLabel = new Label("删除用户:");
+        TextField deleteUserField = new TextField();
+        deleteUserField.setPromptText("用户名称");
+        Button deleteUserButton = new Button("删除");
+        deleteUserButton.setOnAction(e -> deleteUser(deleteUserField.getText()));
 
-    Label filterFavoritesLabel = new Label("过滤最少收藏菜品:");
-    TextField filterFavoritesField = new TextField();
-    filterFavoritesField.setPromptText("最少收藏数");
-    Button filterFavoritesButton = new Button("过滤");
-    filterFavoritesButton.setOnAction(e -> filterFavorites(filterFavoritesField.getText()));
+        // 添加其余标签和字段
+        Label analyzeDishLabel = new Label("分析菜品数据:");
+        TextField analyzeDishField = new TextField();
+        analyzeDishField.setPromptText("菜品名称");
+        Button analyzeDishButton = new Button("分析");
+        analyzeDishButton.setOnAction(e -> analyzeDishData(analyzeDishField.getText()));
 
-    Label loyalCustomerLabel = new Label("忠实用户分析:");
-    TextField loyalCustomerField = new TextField();
-    loyalCustomerField.setPromptText("商户ID");
-    Button loyalCustomerButton = new Button("分析");
-    loyalCustomerButton.setOnAction(e -> analyzeLoyalCustomers(loyalCustomerField.getText()));
+        Label filterFavoritesLabel = new Label("过滤最少收藏菜品:");
+        TextField filterFavoritesField = new TextField();
+        filterFavoritesField.setPromptText("最少收藏数");
+        Button filterFavoritesButton = new Button("过滤");
+        filterFavoritesButton.setOnAction(e -> filterFavorites(filterFavoritesField.getText()));
 
-    Label userActivityLabel = new Label("用户行为分析:");
-    TextField userActivityField = new TextField();
-    userActivityField.setPromptText("时间段(YYYY-MM)");
-    Button userActivityButton = new Button("分析");
-    userActivityButton.setOnAction(e -> analyzeUserActivity(userActivityField.getText()));
+        Label loyalCustomerLabel = new Label("忠实用户分析:");
+        TextField loyalCustomerField = new TextField();
+        loyalCustomerField.setPromptText("商户名称");
+        Button loyalCustomerButton = new Button("分析");
+        loyalCustomerButton.setOnAction(e -> analyzeLoyalCustomers(loyalCustomerField.getText()));
 
-    Label userGroupLabel = new Label("用户群体特征:");
-    Label roleLabel = new Label("角色:");
-    ComboBox<String> roleComboBox = new ComboBox<>();
-    roleComboBox.getItems().addAll("老师", "学生", "职工");
+        Label userActivityLabel = new Label("用户行为分析:");
+        TextField userActivityField = new TextField();
+        userActivityField.setPromptText("时间段(YYYY-MM)");
+        Button userActivityButton = new Button("分析");
+        userActivityButton.setOnAction(e -> analyzeUserActivity(userActivityField.getText()));
 
-    Label ageRangeLabel = new Label("年龄范围:");
-    TextField ageRangeField = new TextField();
-    ageRangeField.setPromptText("minAge-maxAge");
+        Label userGroupLabel = new Label("用户群体特征:");
+        Label roleLabel = new Label("角色:");
+        ComboBox<String> roleComboBox = new ComboBox<>();
+        roleComboBox.getItems().addAll("老师", "学生", "职工");
 
-    Label genderLabel = new Label("性别:");
-    ComboBox<String> genderComboBox = new ComboBox<>();
-    genderComboBox.getItems().addAll("男", "女");
+        Label ageRangeLabel = new Label("年龄范围:");
+        TextField ageRangeField = new TextField();
+        ageRangeField.setPromptText("minAge-maxAge");
 
-    Button userGroupButton = new Button("分析");
-    userGroupButton.setOnAction(e -> analyzeUserGroup(
-        roleComboBox.getValue(),
-        ageRangeField.getText(),
-        genderComboBox.getValue()
-    ));
+        Label genderLabel = new Label("性别:");
+        ComboBox<String> genderComboBox = new ComboBox<>();
+        genderComboBox.getItems().addAll("男", "女");
 
-    Label hotSellingDishLabel = new Label("热销菜品分析:");
-    TextField hotSellingDishField = new TextField();
-    hotSellingDishField.setPromptText("商户ID");
-    Button hotSellingDishButton = new Button("分析");
-    hotSellingDishButton.setOnAction(e -> analyzeHotSellingDishes(hotSellingDishField.getText()));
+        Button userGroupButton = new Button("分析");
+        userGroupButton.setOnAction(e -> analyzeUserGroup(
+            roleComboBox.getValue(),
+            ageRangeField.getText(),
+            genderComboBox.getValue()
+        ));
 
-    outputArea = new TextArea();
-    outputArea.setPrefHeight(200);
+        Label hotSellingDishLabel = new Label("热销菜品分析:");
+        TextField hotSellingDishField = new TextField();
+        hotSellingDishField.setPromptText("商户ID");
+        Button hotSellingDishButton = new Button("分析");
+        hotSellingDishButton.setOnAction(e -> analyzeHotSellingDishes(hotSellingDishField.getText()));
 
-    // 将所有元素添加到网格中
-    grid.add(addMerchantLabel, 0, 0);
-    grid.add(merchantNameField, 1, 0);
-    grid.add(merchantAddressField, 2, 0);
-    grid.add(addMerchantButton, 3, 0);
+        // 将所有元素添加到网格中
+        grid.add(addMerchantLabel, 0, 0);
+        grid.add(merchantNameField, 1, 0);
+        grid.add(merchantAddressField, 2, 0);
+        grid.add(addMerchantButton, 3, 0);
 
-    grid.add(deleteMerchantLabel, 0, 1);
-    grid.add(deleteMerchantField, 1, 1);
-    grid.add(deleteMerchantButton, 2, 1);
+        grid.add(deleteMerchantLabel, 0, 1);
+        grid.add(deleteMerchantField, 1, 1);
+        grid.add(deleteMerchantButton, 2, 1);
 
-    grid.add(addUserLabel, 0, 2);
-    grid.add(userNameField, 1, 2);
-    grid.add(userGenderComboBox, 2, 2);
-    grid.add(userBirthDatePicker, 3, 2);
-    grid.add(userIDField, 4, 2);
-    grid.add(addUserButton, 5, 2);
+        grid.add(addUserLabel, 0, 2);
+        grid.add(userNameField, 1, 2);
+        grid.add(userGenderComboBox, 2, 2);
+        grid.add(userBirthDatePicker, 3, 2);
+        grid.add(userIDField, 4, 2);
+        grid.add(addUserButton, 5, 2);
 
-    grid.add(deleteUserLabel, 0, 3);
-    grid.add(deleteUserField, 1, 3);
-    grid.add(deleteUserButton, 2, 3);
+        grid.add(deleteUserLabel, 0, 3);
+        grid.add(deleteUserField, 1, 3);
+        grid.add(deleteUserButton, 2, 3);
 
-    grid.add(analyzeDishLabel, 0, 4);
-    grid.add(analyzeDishField, 1, 4);
-    grid.add(analyzeDishButton, 2, 4);
-    grid.add(filterFavoritesLabel, 0, 5);
-    grid.add(filterFavoritesField, 1, 5);
-    grid.add(filterFavoritesButton, 2, 5);
-    grid.add(loyalCustomerLabel, 0, 6);
-    grid.add(loyalCustomerField, 1, 6);
-    grid.add(loyalCustomerButton, 2, 6);
-    grid.add(userActivityLabel, 0, 7);
-    grid.add(userActivityField, 1, 7);
-    grid.add(userActivityButton, 2, 7);
-    grid.add(userGroupLabel, 0, 8);
-    grid.add(roleLabel, 0, 9);
-    grid.add(roleComboBox, 1, 9);
-    grid.add(ageRangeLabel, 0, 10);
-    grid.add(ageRangeField, 1, 10);
-    grid.add(genderLabel, 0, 11);
-    grid.add(genderComboBox, 1, 11);
-    grid.add(userGroupButton, 2, 12);
-    grid.add(hotSellingDishLabel, 0, 13);
-    grid.add(hotSellingDishField, 1, 13);
-    grid.add(hotSellingDishButton, 2, 13);
+        grid.add(analyzeDishLabel, 0, 4);
+        grid.add(analyzeDishField, 1, 4);
+        grid.add(analyzeDishButton, 2, 4);
+        grid.add(filterFavoritesLabel, 0, 5);
+        grid.add(filterFavoritesField, 1, 5);
+        grid.add(filterFavoritesButton, 2, 5);
+        grid.add(loyalCustomerLabel, 0, 6);
+        grid.add(loyalCustomerField, 1, 6);
+        grid.add(loyalCustomerButton, 2, 6);
+        grid.add(userActivityLabel, 0, 7);
+        grid.add(userActivityField, 1, 7);
+        grid.add(userActivityButton, 2, 7);
+        grid.add(userGroupLabel, 0, 8);
+        grid.add(roleLabel, 0, 9);
+        grid.add(roleComboBox, 1, 9);
+        grid.add(ageRangeLabel, 0, 10);
+        grid.add(ageRangeField, 1, 10);
+        grid.add(genderLabel, 0, 11);
+        grid.add(genderComboBox, 1, 11);
+        grid.add(userGroupButton, 2, 12);
+        grid.add(hotSellingDishLabel, 0, 13);
+        grid.add(hotSellingDishField, 1, 13);
+        grid.add(hotSellingDishButton, 2, 13);
 
-    layout.getChildren().addAll(backButton, grid, outputArea);
-    return new Scene(layout, 800, 600);
+        layout.getChildren().addAll(backButton, grid, outputArea);
+        return new Scene(layout, 950, 700);
 }
+
+    private boolean userIDExists(String UserID)throws Exception{
+        PreparedStatement userIDExistsStatement = connection.prepareStatement(viewAccountInfoString);
+        userIDExistsStatement.setInt(1, Integer.parseInt(UserID));
+        ResultSet res = userIDExistsStatement.executeQuery();
+        if(res.isBeforeFirst())
+            return true;
+        else
+            return false;
+    }
 
     static final String viewAccountInfoString = "SELECT * FROM 用户 WHERE id=?;";
     private void viewAccountInfo() throws SQLException{
@@ -604,12 +640,12 @@ public class CanteenOrderingSystem extends Application {
         viewAccountInfoStatement.close();
     }
 
+    
     private void searchMerchants(String merchantName) {
         outputArea.setText("TODO: Search merchants by name: " + merchantName);
     }
 
-    private void viewMerchantDetail(String merchantId) {
-        outputArea.setText("TODO: Display merchant details for merchant ID: " + merchantId);
+    private void viewMerchantDetail(String merchantName) {
     }
 
     private void searchDishes(String dishName, String allergen) {
@@ -648,8 +684,19 @@ public class CanteenOrderingSystem extends Application {
         outputArea.setText("Reservation for merchant ID: " + merchantId + " at time: " + time + " made successfully.");
     }
 
-    private void viewMerchantAccountInfo() {
-        outputArea.setText("TODO: Display merchant account information for merchant ID: " + currentMerchantId);
+    static final String viewMerchantAccountInfoString = "SELECT * FROM 商户 WHERE id=?";
+    private void viewMerchantAccountInfo() throws SQLException{
+        StringBuilder sb = new StringBuilder();
+        PreparedStatement viewMerchantAccountInfoStatement = connection.prepareStatement(viewMerchantAccountInfoString);
+        viewMerchantAccountInfoStatement.setInt(1, Integer.parseInt(currentMerchantId));
+        ResultSet res = viewMerchantAccountInfoStatement.executeQuery();
+        res.next();
+        sb.append("商户ID: "+res.getString("id")+"\n");
+        sb.append("名称: "+res.getString("名称")+"\n");
+        sb.append("地址: "+res.getString("地址")+"\n");
+        outputArea.setText(sb.toString());
+        res.close();
+        viewMerchantAccountInfoStatement.close();
     }
 
     private void sendMessage(String message) {
@@ -658,12 +705,30 @@ public class CanteenOrderingSystem extends Application {
 
     private List<String> getCategoryList(){
         List<String> list = new ArrayList<>();
+        //todo
         return list;
     }
 
-    private int getMerchantID(String merchantName){
-        //todo
-        return 0;
+    static private String getMerchantIDSTring = "SELECT id FROM 商户 WHERE 名称=?;";
+    private int getMerchantID(String merchantName)throws Exception{
+        PreparedStatement getMerchantIDStatement = connection.prepareStatement(getMerchantIDSTring);
+        getMerchantIDStatement.setString(1, merchantName);
+        ResultSet res = getMerchantIDStatement.executeQuery();
+        if(!res.isBeforeFirst())
+            return -1;
+        res.next();
+        return res.getInt("id");
+    }
+
+    static private String getUserIDString = "SELECT id FROM 用户 WHERE 名称=?;";
+    private int getuserID(String userName)throws Exception{
+        PreparedStatement getUserIDStatement = connection.prepareStatement(getUserIDString);
+        getUserIDStatement.setString(1, userName);
+        ResultSet res = getUserIDStatement.executeQuery();
+        if(!res.isBeforeFirst())
+            return -1;
+        res.next();
+        return res.getInt("id");
     }
 
     private void createDish(String name, String merchantID, boolean isSpecial, String description, String price, String imageId, String category) {
@@ -678,7 +743,7 @@ public class CanteenOrderingSystem extends Application {
 
     
     static final String addUserString = "INSERT INTO 用户 (名称,性别,出生日期,学工号) VALUES(?,?,?,?);";
-    private void addUser(String userName, String userGender, String birthDate, String userPersonID) throws SQLException {
+    private void addUser(String userName, String userGender, String birthDate, String userPersonID) throws Exception {
         PreparedStatement addUserStatement  = connection.prepareStatement(addUserString);
         addUserStatement.setString(1, userName);
         addUserStatement.setString(2, userGender);
@@ -686,18 +751,45 @@ public class CanteenOrderingSystem extends Application {
         addUserStatement.setString(4, userPersonID);
         addUserStatement.executeUpdate();
         addUserStatement.close();
+        if(outputArea!=null)
+            outputArea.setText("用户ID为 "+getuserID(userName)+" 添加成功!");
     }
 
-    private void deleteUser(String userId) {
-        outputArea.setText("User deleted successfully: " + userId);
+    static final String deleteUserString = "DELETE FROM 用户 WHERE 名称=?";
+    private void deleteUser(String userName) {
+        try{
+            PreparedStatement deleteUserStatement = connection.prepareStatement(deleteUserString);
+            deleteUserStatement.setString(1, userName);
+            deleteUserStatement.executeUpdate();
+            deleteUserStatement.close();
+        }catch(SQLException e){
+            outputArea.setText("Error!");
+        }
+        if(outputArea!=null)
+            outputArea.setText("用户已删除: " + userName);
     }
 
-    private void addMerchant(String merchantName, String merchantAddress){
-
+    static final String addMerchantString = "INSERT INTO 商户 (名称,地址) VALUES(?,?);";
+    private void addMerchant(String merchantName, String merchantAddress)throws SQLException{
+        PreparedStatement addMerchantStatement = connection.prepareStatement(addMerchantString);
+        addMerchantStatement.setString(1, merchantName);
+        addMerchantStatement.setString(2, merchantAddress);
+        addMerchantStatement.executeUpdate();
+        addMerchantStatement.close();
     }
 
-    private void deleteMerchant(String merchantID){
-
+    static final String deleteMerchantString = "DELETE FROM 商户 WHERE 名称=?";
+    private void deleteMerchant(String merchantName){
+        try{
+            PreparedStatement deleteMerchantStatement = connection.prepareStatement(deleteMerchantString);
+            deleteMerchantStatement.setString(1, merchantName);
+            deleteMerchantStatement.executeUpdate();
+            deleteMerchantStatement.close();
+        }catch(SQLException e){
+            outputArea.setText("Error!");
+        }
+        if(outputArea!=null)
+            outputArea.setText("商户已删除: " + merchantName);
     }
 
     private void analyzeDishData(String dishId) {
