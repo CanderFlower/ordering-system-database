@@ -4,7 +4,6 @@ import java.sql.*;
 import java.util.ArrayList;
 import java.util.List;
 
-import com.mysql.cj.x.protobuf.MysqlxPrepare.Prepare;
 
 import javafx.application.Application;
 import javafx.geometry.Insets;
@@ -178,7 +177,7 @@ public class CanteenOrderingSystem extends Application {
         loginButton.setOnAction(e -> {
             currentUserId = userIdField.getText();
             try{
-                if(!userIDExists(currentUserId)){
+                if(currentUserId.equals("")||!userIDExists(currentUserId)){
                     userLoginMessage.setText("没有该用户!");
                 }else{
                     primaryStage.setScene(createUserScene());
@@ -206,7 +205,7 @@ public class CanteenOrderingSystem extends Application {
         loginButton.setOnAction(e -> {
             currentMerchantId = merchantIdField.getText();
             try{
-                if(!merchantIDExists(currentMerchantId)){
+                if(currentMerchantId.equals("")||!merchantIDExists(currentMerchantId)){
                     merchantLoginMessage.setText("没有该商家!");
                 }else{
                     primaryStage.setScene(createMerchantScene());
@@ -219,19 +218,19 @@ public class CanteenOrderingSystem extends Application {
         layout.getChildren().addAll(backButton, merchantIdLabel, merchantIdField, loginButton,merchantLoginMessage);
         return new Scene(layout, 300, 200);
     }
-
-    private Scene createUserScene() throws SQLException{
+    
+    private Scene createUserScene() throws SQLException {
         VBox layout = new VBox(10);
         layout.setPadding(new Insets(10));
-
+    
         Button backButton = new Button("返回");
         backButton.setOnAction(e -> primaryStage.setScene(mainScene));
-
+    
         GridPane grid = new GridPane();
         grid.setPadding(new Insets(10));
         grid.setVgap(10);
         grid.setHgap(10);
-
+    
         Label accountInfoLabel = new Label("用户信息:");
         Button viewAccountInfoButton = new Button("查看");
         viewAccountInfoButton.setOnAction(e -> {
@@ -241,19 +240,19 @@ public class CanteenOrderingSystem extends Application {
                 System.out.println(e1);
             }
         });
-
+    
         Label searchMerchantLabel = new Label("搜索商户:");
         TextField searchMerchantField = new TextField();
         searchMerchantField.setPromptText("商户名");
         Button searchMerchantButton = new Button("搜索");
         searchMerchantButton.setOnAction(e -> {
-            try{
+            try {
                 searchMerchants(searchMerchantField.getText());
-            }catch(SQLException e1){
+            } catch (SQLException e1) {
                 System.out.println(e1);
             }
         });
-
+    
         Label merchantDetailLabel = new Label("查看商户详情:");
         TextField merchantIdField = new TextField();
         merchantIdField.setPromptText("商户名称");
@@ -265,39 +264,79 @@ public class CanteenOrderingSystem extends Application {
                 e1.printStackTrace();
             }
         });
-
+    
         Label searchDishLabel = new Label("搜索菜品:");
         TextField searchDishField = new TextField();
         searchDishField.setPromptText("菜品名");
         TextField allergenField = new TextField();
         allergenField.setPromptText("过敏原(空格隔开)");
         Button searchDishButton = new Button("搜索");
-        searchDishButton.setOnAction(e -> searchDishes(searchDishField.getText(), allergenField.getText()));
-
+        searchDishButton.setOnAction(e -> {
+            try {
+                searchDishes(searchDishField.getText(), allergenField.getText());
+            } catch (Exception e1) {
+                e1.printStackTrace();
+            }
+        });
+    
         Label dishDetailLabel = new Label("查看菜品详情:");
         TextField dishIdField = new TextField();
         dishIdField.setPromptText("菜品ID");
         Button dishDetailButton = new Button("查看");
-        dishDetailButton.setOnAction(e -> viewDishDetail(dishIdField.getText()));
-
-        Label orderDishLabel = new Label("点餐:");
-        TextField orderDishField = new TextField();
-        orderDishField.setPromptText("菜品ID (用-隔开)");
-        Button orderDishButton = new Button("下单");
-        orderDishButton.setOnAction(e -> orderDish(orderDishField.getText()));
-
+        dishDetailButton.setOnAction(e -> {
+            try {
+                viewDishDetail(dishIdField.getText());
+            } catch (Exception e1) {
+                e1.printStackTrace();
+            }
+        });
+    
+        Label orderDishLabelOnline = new Label("在线点餐:");
+        TextField orderDishFieldOnline = new TextField();
+        orderDishFieldOnline.setPromptText("菜品ID (用-隔开)");
+        Button orderDishButtonOnline = new Button("下单");
+        orderDishButtonOnline.setOnAction(e -> {
+            try {
+                if(orderDishButtonOnline.getText().equals(""))
+                    return;
+                orderDishOnline(orderDishFieldOnline.getText());
+            } catch (Exception e1) {
+                e1.printStackTrace();
+            }
+        });
+    
+        Label orderDishLabelQueue = new Label("排队点餐:");
+        TextField orderDishFieldQueue = new TextField();
+        orderDishFieldQueue.setPromptText("菜品ID (用-隔开)");
+        Button orderDishButtonQueue = new Button("下单");
+        orderDishButtonQueue.setOnAction(e -> {
+            try {
+                if(orderDishFieldQueue.getText().equals(""))
+                    return;
+                orderDishQueue(orderDishFieldQueue.getText());
+            } catch (Exception e1) {
+                e1.printStackTrace();
+            }
+        });
+    
         Button viewOrdersButton = new Button("查看订单");
-        viewOrdersButton.setOnAction(e -> viewOrders());
-
+        viewOrdersButton.setOnAction(e -> {
+            try {
+                viewOrders();
+            } catch (Exception e1) {
+                e1.printStackTrace();
+            }
+        });
+    
         Label favoriteLabel = new Label("收藏菜品:");
         TextField favoriteDishField = new TextField();
         favoriteDishField.setPromptText("菜品ID");
         Button favoriteButton = new Button("收藏");
         favoriteButton.setOnAction(e -> favoriteDish(favoriteDishField.getText()));
-
+    
         Button receiveMessagesButton = new Button("查看信息");
         receiveMessagesButton.setOnAction(e -> receiveMessages());
-
+    
         Label reviewLabel = new Label("评价商户:");
         TextField reviewMerchantField = new TextField();
         TextField reviewContentField = new TextField();
@@ -307,13 +346,13 @@ public class CanteenOrderingSystem extends Application {
         reviewRatingField.setPromptText("评分");
         Button reviewButton = new Button("提交");
         reviewButton.setOnAction(e -> submitReview(reviewMerchantField.getText(), reviewContentField.getText(), reviewRatingField.getText()));
-
+    
         Label priceChangeLabel = new Label("查看价格变化:");
         TextField priceChangeDishField = new TextField();
         priceChangeDishField.setPromptText("菜品ID");
         Button priceChangeButton = new Button("查看");
         priceChangeButton.setOnAction(e -> viewPriceChange(priceChangeDishField.getText()));
-
+    
         Label reservationLabel = new Label("预约商户:");
         TextField reservationMerchantField = new TextField();
         TextField reservationTimeField = new TextField();
@@ -321,10 +360,10 @@ public class CanteenOrderingSystem extends Application {
         reservationTimeField.setPromptText("时间(YYYY-MM-DD)");
         Button reservationButton = new Button("预约");
         reservationButton.setOnAction(e -> reserve(reservationMerchantField.getText(), reservationTimeField.getText()));
-
+    
         outputArea = new TextArea();
         outputArea.setPrefHeight(200);
-
+    
         grid.add(accountInfoLabel, 0, 0);
         grid.add(viewAccountInfoButton, 1, 0);
         grid.add(searchMerchantLabel, 0, 1);
@@ -340,29 +379,32 @@ public class CanteenOrderingSystem extends Application {
         grid.add(dishDetailLabel, 0, 4);
         grid.add(dishIdField, 1, 4);
         grid.add(dishDetailButton, 2, 4);
-        grid.add(orderDishLabel, 0, 5);
-        grid.add(orderDishField, 1, 5);
-        grid.add(orderDishButton, 2, 5);
-        grid.add(favoriteLabel, 0, 6);
-        grid.add(favoriteDishField, 1, 6);
-        grid.add(favoriteButton, 2, 6);
-        grid.add(reviewLabel, 0, 7);
-        grid.add(reviewMerchantField, 1, 7);
-        grid.add(reviewContentField, 2, 7);
-        grid.add(reviewRatingField, 3, 7);
-        grid.add(reviewButton, 4, 7);
-        grid.add(priceChangeLabel, 0, 8);
-        grid.add(priceChangeDishField, 1, 8);
-        grid.add(priceChangeButton, 2, 8);
-        grid.add(reservationLabel, 0, 9);
-        grid.add(reservationMerchantField, 1, 9);
-        grid.add(reservationTimeField, 2, 9);
-        grid.add(reservationButton, 3, 9);
-
+        grid.add(orderDishLabelOnline, 0, 5);
+        grid.add(orderDishFieldOnline, 1, 5);
+        grid.add(orderDishButtonOnline, 2, 5);
+        grid.add(orderDishLabelQueue, 0, 6);
+        grid.add(orderDishFieldQueue, 1, 6);
+        grid.add(orderDishButtonQueue, 2, 6);
+        grid.add(favoriteLabel, 0, 7);
+        grid.add(favoriteDishField, 1, 7);
+        grid.add(favoriteButton, 2, 7);
+        grid.add(reviewLabel, 0, 8);
+        grid.add(reviewMerchantField, 1, 8);
+        grid.add(reviewContentField, 2, 8);
+        grid.add(reviewRatingField, 3, 8);
+        grid.add(reviewButton, 4, 8);
+        grid.add(priceChangeLabel, 0, 9);
+        grid.add(priceChangeDishField, 1, 9);
+        grid.add(priceChangeButton, 2, 9);
+        grid.add(reservationLabel, 0, 10);
+        grid.add(reservationMerchantField, 1, 10);
+        grid.add(reservationTimeField, 2, 10);
+        grid.add(reservationButton, 3, 10);
+    
         layout.getChildren().addAll(backButton, grid, viewOrdersButton, receiveMessagesButton, outputArea);
         return new Scene(layout, 800, 600);
     }
-
+    
     private Scene createMerchantScene() {
         VBox layout = new VBox(10);
         layout.setPadding(new Insets(10));
@@ -713,17 +755,8 @@ public class CanteenOrderingSystem extends Application {
         searchMerchantsStatement.close();
     }
 
-    static final String viewMerchantDetailString = "SELECT * FROM 菜品 WHERE id IN (SELECT 菜品_id FROM 菜品属于商户 WHERE 商户_id=?);";
-    private void viewMerchantDetail(String merchantName) throws Exception{
-        PreparedStatement viewMerchantDetailStatement = connection.prepareStatement(viewMerchantDetailString);
-        int merchantID = getMerchantID(merchantName);
-        if(merchantID==-1){
-            outputArea.setText("没有该商家\n");
-            return;
-        }
-        viewMerchantDetailStatement.setInt(1, merchantID);
-        ResultSet res = viewMerchantDetailStatement.executeQuery();
-
+    private Scene createDishScene(ResultSet res)throws Exception{
+        
         VBox layout = new VBox(10);
         layout.setPadding(new Insets(10));
 
@@ -776,8 +809,21 @@ public class CanteenOrderingSystem extends Application {
         ScrollPane scrollPane = new ScrollPane();
         scrollPane.setContent(layout);
         scrollPane.setFitToWidth(true);
+        return new Scene(scrollPane, 800, 600);
+    }
 
-        primaryStage.setScene(new Scene(scrollPane, 800, 600));
+    static final String viewMerchantDetailString = "SELECT * FROM 菜品 WHERE id IN (SELECT 菜品_id FROM 菜品属于商户 WHERE 商户_id=?);";
+    private void viewMerchantDetail(String merchantName) throws Exception{
+        PreparedStatement viewMerchantDetailStatement = connection.prepareStatement(viewMerchantDetailString);
+        int merchantID = getMerchantID(merchantName);
+        if(merchantID==-1){
+            outputArea.setText("没有该商家\n");
+            return;
+        }
+        viewMerchantDetailStatement.setInt(1, merchantID);
+        ResultSet res = viewMerchantDetailStatement.executeQuery();
+
+        primaryStage.setScene(createDishScene(res));
     }
 
     static final String getAllergenIDString = "SELECT id FROM 过敏原 WHERE 名称=?;";
@@ -831,26 +877,132 @@ public class CanteenOrderingSystem extends Application {
             createDishAllergen(dishName, allergen);
     }
     
-    static final String serachDishes = "";
-    private void searchDishes(String dishName, String allergen) {
-        String[] ag = allergen.split(" ");
-
+    static final String searchDishesPre = "SELECT * FROM 菜品 WHERE 名称 LIKE ? AND id NOT IN(SELECT DISTINCT 菜品.id FROM 菜品 LEFT JOIN 菜品包含过敏原 ON 菜品.id = 菜品包含过敏原.菜品_id LEFT JOIN 过敏原 ON 菜品包含过敏原.过敏原_id = 过敏原.id WHERE 过敏原.名称 IS NOT NULL AND 过敏原.名称 IN (\'占位\'";
+    private void searchDishes(String dishName, String allergenList) throws Exception{
+        StringBuilder sb = new StringBuilder(searchDishesPre);
+        if(!allergenList.equals("")){
+            String[] allergens = allergenList.split(" ");
+            for(String allergen : allergens)
+                sb.append(",\'"+allergen+"\'");
+        }
+        sb.append("));");
+        String searchDishesString = sb.toString();
+        //System.out.println(searchDishesString);
+        PreparedStatement searchDishesStatement = connection.prepareStatement(searchDishesString);
+        searchDishesStatement.setString(1, "%"+dishName+"%");
+        ResultSet res = searchDishesStatement.executeQuery();
+        if(!res.isBeforeFirst()){
+            outputArea.setText("没有结果!");
+            return;
+        }
+        primaryStage.setScene(createDishScene(res));
     }
 
-    private void viewDishDetail(String dishId) {
-        outputArea.setText("TODO: Display dish details for dish ID: " + dishId);
+    static final String viewDishDetailString = "SELECT * FROM 菜品 WHERE id=?;";
+    private void viewDishDetail(String dishId) throws Exception{
+        PreparedStatement viewDishDetailStatement = connection.prepareStatement(viewDishDetailString);
+        viewDishDetailStatement.setInt(1, Integer.parseInt(dishId));
+        ResultSet res = viewDishDetailStatement.executeQuery();
+        if(!res.isBeforeFirst()){
+            outputArea.setText("没有这一菜品!");
+            return;
+        }
+        primaryStage.setScene(createDishScene(res));
     }
 
-    private void orderDish(String dishIds) {
-        outputArea.setText("TODO: Order dishes with IDs: " + dishIds);
+    static final String createOnlineOrderString = "INSERT INTO 在线订单(创建时间,是否完成) VALUES(CURRENT_TIMESTAMP,false);";
+    static final String createOnlineOrderUserString = "INSERT INTO 用户创建在线订单(用户_id,在线订单_id) VALUES(?,?);";
+    static final String createOnlineOrderDishString = "INSERT INTO 订单包含菜品(在线订单_id,菜品_id) VALUES(?,?);";
+    private void orderDishOnline(String dishIdList)throws Exception{
+        PreparedStatement orderDishOnlineStatement = connection.prepareStatement(createOnlineOrderString, Statement.RETURN_GENERATED_KEYS);
+        orderDishOnlineStatement.executeUpdate();
+        ResultSet generatedKey = orderDishOnlineStatement.getGeneratedKeys();
+        generatedKey.next();
+        int key = generatedKey.getInt(1);
+        orderDishOnlineStatement.close();
+
+        PreparedStatement createOnlineOrderUserStatement = connection.prepareStatement(createOnlineOrderUserString);
+        createOnlineOrderUserStatement.setInt(1, Integer.parseInt(currentUserId));
+        createOnlineOrderUserStatement.setInt(2, key);
+        createOnlineOrderUserStatement.executeUpdate();
+        createOnlineOrderUserStatement.close();
+
+        String[] dishIds = dishIdList.split(" ");
+        for(String dishId : dishIds){
+            int dish = Integer.parseInt(dishId);
+            PreparedStatement createOnlineOrderDishStatement = connection.prepareStatement(createOnlineOrderDishString);
+            createOnlineOrderDishStatement.setInt(1, key);
+            createOnlineOrderDishStatement.setInt(2, dish);
+            createOnlineOrderDishStatement.executeUpdate();
+            createOnlineOrderDishStatement.close();
+        }
     }
 
-    private void viewOrders() {
-        outputArea.setText("TODO: Display all orders for user ID: " + currentUserId);
+    static final String createQueueOrderString = "INSERT INTO 排队订单(创建时间,是否完成) VALUES(CURRENT_TIMESTAMP,false);";
+    static final String createQueueOrderUserString = "INSERT INTO 用户创建排队订单(用户_id,排队订单_id) VALUES(?,?);";
+    static final String createQueueOrderDishString = "INSERT INTO 订单包含菜品(排队订单_id,菜品_id) VALUES(?,?);";
+    private void orderDishQueue(String dishIdList)throws Exception{
+        PreparedStatement orderDishQueueStatement = connection.prepareStatement(createQueueOrderString, Statement.RETURN_GENERATED_KEYS);
+        orderDishQueueStatement.executeUpdate();
+        ResultSet generatedKey = orderDishQueueStatement.getGeneratedKeys();
+        generatedKey.next();
+        int key = generatedKey.getInt(1);
+        orderDishQueueStatement.close();
+
+        PreparedStatement createQueueOrderUserStatement = connection.prepareStatement(createQueueOrderUserString);
+        createQueueOrderUserStatement.setInt(1, Integer.parseInt(currentUserId));
+        createQueueOrderUserStatement.setInt(2, key);
+        createQueueOrderUserStatement.executeUpdate();
+        createQueueOrderUserStatement.close();
+
+        String[] dishIds = dishIdList.split(" ");
+        for(String dishId : dishIds){
+            int dish = Integer.parseInt(dishId);
+            PreparedStatement createQueueOrderDishStatement = connection.prepareStatement(createQueueOrderDishString);
+            createQueueOrderDishStatement.setInt(1, key);
+            createQueueOrderDishStatement.setInt(2, dish);
+            createQueueOrderDishStatement.executeUpdate();
+            createQueueOrderDishStatement.close();
+        }
     }
 
+    static final String viewOnlineOrdersString = "SELECT 在线订单.* FROM 用户创建在线订单 LEFT JOIN 在线订单 ON 用户创建在线订单.订单_id=在线订单.id WHERE 用户创建在线订单.用户id=?;";
+    static final String viewQueueOrdersString = "SELECT 排队订单.* FROM 用户创建排队订单 LEFT JOIN 排队订单 ON 用户创建排队订单.订单_id=排队订单.id WHERE 用户创建排队订单.用户id=?;";
+    private void viewOrders() throws Exception{
+        StringBuilder sb = new StringBuilder();
+        PreparedStatement viewOnlineOrderStatement = connection.prepareStatement(viewOnlineOrdersString);
+        viewOnlineOrderStatement.setInt(1, Integer.parseInt(currentUserId));
+        ResultSet res = viewOnlineOrderStatement.executeQuery();
+        while(res.next()){
+            sb.append("在线订单["+res.getInt("id")+"],");
+            sb.append("创建时间: "+res.getTime("创建时间")+", ");
+            sb.append(res.getBoolean("是否完成")?"已完成":"未完成"+"\n");
+        }
+        res.close();
+        PreparedStatement viewQueueOrderStatement = connection.prepareStatement(viewQueueOrdersString);
+        viewQueueOrderStatement.setInt(1, Integer.parseInt(currentUserId));
+        res = viewQueueOrderStatement.executeQuery();
+        while(res.next()){
+            sb.append("排队订单["+res.getInt("id")+"],");
+            sb.append("创建时间: "+res.getTime("创建时间")+", ");
+            sb.append(res.getBoolean("是否完成")?"已完成":"未完成"+"\n");
+        }
+        res.close();
+        outputArea.setText(sb.toString());
+    }
+
+    static final String insertFavoriteDishString = "INSERT INTO `用户收藏菜品` (`用户_id`, `菜品_id`) VALUES (?, ?);";
     private void favoriteDish(String dishId) {
-        outputArea.setText("Favorite dish ID: " + dishId + " added successfully.");
+        try {
+            PreparedStatement insertFavoriteDishStatement = connection.prepareStatement(insertFavoriteDishString);
+
+            insertFavoriteDishStatement.setInt(1, Integer.parseInt(currentUserId));
+            insertFavoriteDishStatement.setInt(2, Integer.parseInt(dishId));
+            insertFavoriteDishStatement.executeUpdate();
+
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
     }
 
     private void receiveMessages() {
