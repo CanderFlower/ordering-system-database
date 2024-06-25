@@ -4,12 +4,16 @@ import java.sql.*;
 import java.util.ArrayList;
 import java.util.List;
 
+import com.mysql.cj.x.protobuf.MysqlxPrepare.Prepare;
 
 import javafx.application.Application;
 import javafx.geometry.Insets;
 import javafx.scene.Scene;
 import javafx.scene.control.*;
+import javafx.scene.image.Image;
+import javafx.scene.image.ImageView;
 import javafx.scene.layout.GridPane;
+import javafx.scene.layout.HBox;
 import javafx.scene.layout.VBox;
 import javafx.stage.Stage;
 
@@ -150,13 +154,14 @@ public class CanteenOrderingSystem extends Application {
                         return;
                     }
                     createDish(args[0], String.valueOf(merchantID), args[2].equals("1"), args[3], args[4], 
-                    args[5], args[6]);
+                    args[5], args[6], args.length>7?args[7]:null);
                 }
                 br.close();
             }
         }catch(Exception e){
             System.out.println(e);
         }
+        System.out.println("菜品初始数据加载完成...");
     }
 
     private Scene createUserLoginScene() {
@@ -174,7 +179,7 @@ public class CanteenOrderingSystem extends Application {
             currentUserId = userIdField.getText();
             try{
                 if(!userIDExists(currentUserId)){
-                    userLoginMessage.setText("No Such user!");
+                    userLoginMessage.setText("没有该用户!");
                 }else{
                     primaryStage.setScene(createUserScene());
                 }
@@ -197,12 +202,21 @@ public class CanteenOrderingSystem extends Application {
         Label merchantIdLabel = new Label("输入商户ID:");
         TextField merchantIdField = new TextField();
         Button loginButton = new Button("登录");
+        Label merchantLoginMessage = new Label();
         loginButton.setOnAction(e -> {
             currentMerchantId = merchantIdField.getText();
-            primaryStage.setScene(createMerchantScene());
+            try{
+                if(!merchantIDExists(currentMerchantId)){
+                    merchantLoginMessage.setText("没有该商家!");
+                }else{
+                    primaryStage.setScene(createMerchantScene());
+                }
+            }catch(Exception err){
+                System.out.println(err);
+            }
         });
 
-        layout.getChildren().addAll(backButton, merchantIdLabel, merchantIdField, loginButton);
+        layout.getChildren().addAll(backButton, merchantIdLabel, merchantIdField, loginButton,merchantLoginMessage);
         return new Scene(layout, 300, 200);
     }
 
@@ -232,19 +246,31 @@ public class CanteenOrderingSystem extends Application {
         TextField searchMerchantField = new TextField();
         searchMerchantField.setPromptText("商户名");
         Button searchMerchantButton = new Button("搜索");
-        searchMerchantButton.setOnAction(e -> searchMerchants(searchMerchantField.getText()));
+        searchMerchantButton.setOnAction(e -> {
+            try{
+                searchMerchants(searchMerchantField.getText());
+            }catch(SQLException e1){
+                System.out.println(e1);
+            }
+        });
 
         Label merchantDetailLabel = new Label("查看商户详情:");
         TextField merchantIdField = new TextField();
         merchantIdField.setPromptText("商户名称");
         Button merchantDetailButton = new Button("查看");
-        merchantDetailButton.setOnAction(e -> viewMerchantDetail(merchantIdField.getText()));
+        merchantDetailButton.setOnAction(e -> {
+            try {
+                viewMerchantDetail(merchantIdField.getText());
+            } catch (Exception e1) {
+                e1.printStackTrace();
+            }
+        });
 
         Label searchDishLabel = new Label("搜索菜品:");
         TextField searchDishField = new TextField();
         searchDishField.setPromptText("菜品名");
         TextField allergenField = new TextField();
-        allergenField.setPromptText("过敏原");
+        allergenField.setPromptText("过敏原(空格隔开)");
         Button searchDishButton = new Button("搜索");
         searchDishButton.setOnAction(e -> searchDishes(searchDishField.getText(), allergenField.getText()));
 
@@ -256,7 +282,7 @@ public class CanteenOrderingSystem extends Application {
 
         Label orderDishLabel = new Label("点餐:");
         TextField orderDishField = new TextField();
-        orderDishField.setPromptText("菜品ID (用空格隔开)");
+        orderDishField.setPromptText("菜品ID (用-隔开)");
         Button orderDishButton = new Button("下单");
         orderDishButton.setOnAction(e -> orderDish(orderDishField.getText()));
 
@@ -346,8 +372,8 @@ public class CanteenOrderingSystem extends Application {
     
         GridPane grid = new GridPane();
         grid.setPadding(new Insets(10));
-        grid.setVgap(10);
-        grid.setHgap(10);
+        grid.setVgap(13);
+        grid.setHgap(13);
     
         Label accountInfoLabel = new Label("账号信息:");
         Button viewAccountInfoButton = new Button("查看");
@@ -361,8 +387,17 @@ public class CanteenOrderingSystem extends Application {
     
         Label sendMessageLabel = new Label("发送消息:");
         TextField sendMessageField = new TextField();
+        sendMessageField.setPromptText("消息内容");
+        TextField sendToField = new TextField();
+        sendToField.setPromptText("用户id");
         Button sendMessageButton = new Button("发送");
-        sendMessageButton.setOnAction(e -> sendMessage(sendMessageField.getText()));
+        sendMessageButton.setOnAction(e -> {
+                try{
+                    sendMessage(sendMessageField.getText(), sendToField.getText());
+                }catch(SQLException e1){
+                    System.out.println(e1);
+                }
+            });
     
         Label manageMenuLabel = new Label("【↓管理菜单↓】");
     
@@ -389,18 +424,27 @@ public class CanteenOrderingSystem extends Application {
         Label categoryLabel = new Label("类别:");
         ComboBox<String> categoryComboBox = new ComboBox<>();
         categoryComboBox.getItems().addAll(getCategoryList());
+
+        Label allergenLabel = new Label("过敏原:");
+        TextField allergenField = new TextField();
+        allergenField.setPromptText("用-隔开");
     
         // 创建新菜品按钮
         Button createDishButton = new Button("创建新菜品");
-        createDishButton.setOnAction(e -> createDish(
+        createDishButton.setOnAction(e -> {
+            try{createDish(
             dishNameField.getText(),
             currentMerchantId,
             isSpecialDishCheckBox.isSelected(),
             descriptionField.getText(),
             priceField.getText(),
             imageIdField.getText(),
-            categoryComboBox.getValue()
-        ));
+            categoryComboBox.getValue(),
+            allergenField.getText()
+            );}catch(SQLException e1){
+                System.out.println(e1);
+            }
+        });
     
         // 修改菜品按钮
         Button updateDishButton = new Button("修改当前菜品");
@@ -421,7 +465,8 @@ public class CanteenOrderingSystem extends Application {
         grid.add(viewAccountInfoButton, 1, 0);
         grid.add(sendMessageLabel, 0, 1);
         grid.add(sendMessageField, 1, 1);
-        grid.add(sendMessageButton, 2, 1);
+        grid.add(sendToField, 2, 1);
+        grid.add(sendMessageButton, 3, 1);
     
         grid.add(manageMenuLabel, 0, 2);
         grid.add(dishNameLabel, 0, 3);
@@ -435,8 +480,10 @@ public class CanteenOrderingSystem extends Application {
         grid.add(imageIdField, 1, 7);
         grid.add(categoryLabel, 0, 8);
         grid.add(categoryComboBox, 1, 8);
-        grid.add(createDishButton, 0, 9);
-        grid.add(updateDishButton, 1, 9);
+        grid.add(allergenLabel, 0, 9);
+        grid.add(allergenField, 1, 9);
+        grid.add(createDishButton, 0, 10);
+        grid.add(updateDishButton, 1, 10);
     
         layout.getChildren().addAll(backButton, grid, outputArea);
         return new Scene(layout, 800, 600);
@@ -471,7 +518,7 @@ public class CanteenOrderingSystem extends Application {
                     merchantAddressField.getText()
                     );
                 outputArea.setText("商户ID: "+getMerchantID(merchantNameField.getText())+" 添加成功!");
-                System.out.println("1111");
+                //System.out.println("1111");
             }catch(Exception exc){
                 System.out.println(exc);
             }
@@ -614,10 +661,20 @@ public class CanteenOrderingSystem extends Application {
         return new Scene(layout, 950, 700);
 }
 
-    private boolean userIDExists(String UserID)throws Exception{
+    private boolean userIDExists(String userID)throws Exception{
         PreparedStatement userIDExistsStatement = connection.prepareStatement(viewAccountInfoString);
-        userIDExistsStatement.setInt(1, Integer.parseInt(UserID));
+        userIDExistsStatement.setInt(1, Integer.parseInt(userID));
         ResultSet res = userIDExistsStatement.executeQuery();
+        if(res.isBeforeFirst())
+            return true;
+        else
+            return false;
+    }
+
+    private boolean merchantIDExists(String merchantID)throws Exception{
+        PreparedStatement merchantIDExistsStatement = connection.prepareStatement(viewMerchantAccountInfoString);
+        merchantIDExistsStatement.setInt(1, Integer.parseInt(merchantID));
+        ResultSet res = merchantIDExistsStatement.executeQuery();
         if(res.isBeforeFirst())
             return true;
         else
@@ -640,16 +697,144 @@ public class CanteenOrderingSystem extends Application {
         viewAccountInfoStatement.close();
     }
 
+    static final String searchMerchantsString = "SELECT * FROM 商户 WHERE 名称 LIKE ?;";
+    private void searchMerchants(String merchantName) throws SQLException{
+        StringBuilder sb = new StringBuilder();
+        PreparedStatement searchMerchantsStatement = connection.prepareStatement(searchMerchantsString);
+        searchMerchantsStatement.setString(1, "%"+merchantName+"%");
+        ResultSet res = searchMerchantsStatement.executeQuery();
+        while(res.next()){
+            sb.append("商户ID: "+res.getString("id")+"\t");
+            sb.append("名称: "+res.getString("名称")+"\t");
+            sb.append("地址: "+res.getString("地址")+"\n");
+        }
+        outputArea.setText(sb.toString());
+        res.close();
+        searchMerchantsStatement.close();
+    }
+
+    static final String viewMerchantDetailString = "SELECT * FROM 菜品 WHERE id IN (SELECT 菜品_id FROM 菜品属于商户 WHERE 商户_id=?);";
+    private void viewMerchantDetail(String merchantName) throws Exception{
+        PreparedStatement viewMerchantDetailStatement = connection.prepareStatement(viewMerchantDetailString);
+        int merchantID = getMerchantID(merchantName);
+        if(merchantID==-1){
+            outputArea.setText("没有该商家\n");
+            return;
+        }
+        viewMerchantDetailStatement.setInt(1, merchantID);
+        ResultSet res = viewMerchantDetailStatement.executeQuery();
+
+        VBox layout = new VBox(10);
+        layout.setPadding(new Insets(10));
+
+        Button backButton = new Button("返回");
+        backButton.setOnAction(e -> {
+            try {
+                primaryStage.setScene(createUserScene());
+            } catch (SQLException e1) {
+                System.out.println(e1);
+            }
+        });
+
+        layout.getChildren().add(backButton);
+
+        while(res.next()) {
+            HBox dishBox = new HBox(10);
+            dishBox.setPadding(new Insets(5));
+
+            String imagePath = "/pic/"+res.getInt("图片编号")+".png";
+            ImageView dishImageView = new ImageView(new Image(imagePath));
+            dishImageView.setFitWidth(100);
+            dishImageView.setFitHeight(100);
+
+            VBox dishDetails = new VBox(5);
+            Label idLabel = new Label("ID: " + res.getInt("id"));
+            Label nameLabel = new Label("名称: " + res.getString("名称"));
+            Label mainDishLabel = new Label("是否主打菜: " + (res.getBoolean("是否主打菜") ? "是" : "否"));
+            Label descriptionLabel = new Label("描述: " + res.getString("描述"));
+            Label priceLabel = new Label("价格: " + res.getDouble("价格"));
+            Label favoritesLabel = new Label("收藏量: " + res.getInt("收藏量"));
+            Label onlineSalesLabel = new Label("在线销量: " + res.getInt("在线销量"));
+            Label queueSalesLabel = new Label("排队销量: " + res.getInt("排队销量"));
+
+            String categoryName = getCategoryName(res.getInt("类别_id"));
+            Label categoryLabel = new Label("类别: " + categoryName);
+            Label ratingLabel = new Label("评分: " + res.getDouble("评分"));
+
+            List<String> allergens = getAllergens(res.getString("名称"));
+            Label allergenLabel = new Label("过敏原: "+((allergens.isEmpty())?"无":allergens));
+
+            dishDetails.getChildren().addAll(
+                idLabel, nameLabel, mainDishLabel, descriptionLabel, priceLabel, 
+                favoritesLabel, onlineSalesLabel, queueSalesLabel, categoryLabel, ratingLabel, allergenLabel
+            );
+
+            dishBox.getChildren().addAll(dishImageView, dishDetails);
+            layout.getChildren().add(dishBox);
+        }
+
+        ScrollPane scrollPane = new ScrollPane();
+        scrollPane.setContent(layout);
+        scrollPane.setFitToWidth(true);
+
+        primaryStage.setScene(new Scene(scrollPane, 800, 600));
+    }
+
+    static final String getAllergenIDString = "SELECT id FROM 过敏原 WHERE 名称=?;";
+    private int getAllergenID(String allergen)throws SQLException{
+        PreparedStatement getAllergenIPreparedStatement = connection.prepareStatement(getAllergenIDString);
+        getAllergenIPreparedStatement.setString(1, allergen);
+        ResultSet res = getAllergenIPreparedStatement.executeQuery();
+        if(!res.isBeforeFirst())
+            return -1;
+        res.next();
+        return res.getInt("id");
+    }
+
+    static final String createAllergenString = "INSERT INTO 过敏原(名称) VALUES(?);";
+    private void createAllergen(String allergen)throws SQLException{
+        PreparedStatement createAllergStatement = connection.prepareStatement(createAllergenString);
+        createAllergStatement.setString(1, allergen);
+        createAllergStatement.executeUpdate();
+        createAllergStatement.close();
+    }
+
+    static final String createDishAllergenString = "INSERT INTO 菜品包含过敏原(菜品_id,过敏原_id) VALUES(?,?) ;";
+    private void createDishAllergen(String dishName, String allergen) throws SQLException{
+        int allergenID;
+        if((allergenID = getAllergenID(allergen))==-1){
+            createAllergen(allergen);
+            allergenID = getAllergenID(allergen);
+        }
+        PreparedStatement createDishAllergenStatement = connection.prepareStatement(createDishAllergenString);
+        createDishAllergenStatement.setInt(1, getDishID(dishName));
+        createDishAllergenStatement.setInt(2, allergenID);
+        createDishAllergenStatement.executeUpdate();
+        createDishAllergenStatement.close();
+    }
+
+    static final String getAllergensString = "SELECT 名称 FROM 过敏原 WHERE id IN (SELECT 过敏原_id FROM 菜品包含过敏原 WHERE 菜品_id=?);";
+    private List<String> getAllergens(String dishName)throws SQLException{
+        List<String> allergens = new ArrayList<>();
+        int dishID = getDishID(dishName);
+        PreparedStatement getAllergensStatement = connection.prepareStatement(getAllergensString);
+        getAllergensStatement.setInt(1, dishID);
+        ResultSet res = getAllergensStatement.executeQuery();
+        while(res.next())
+            allergens.add(res.getString("名称"));
+        return allergens;
+    }
+
+    private void createDishAllergens(String dishName, String allergens)throws SQLException{
+        String[] allergenList = allergens.split("-");
+        for(String allergen:allergenList)
+            createDishAllergen(dishName, allergen);
+    }
     
-    private void searchMerchants(String merchantName) {
-        outputArea.setText("TODO: Search merchants by name: " + merchantName);
-    }
-
-    private void viewMerchantDetail(String merchantName) {
-    }
-
+    static final String serachDishes = "";
     private void searchDishes(String dishName, String allergen) {
-        outputArea.setText("TODO: Search dishes by name: " + dishName + " avoiding allergen: " + allergen);
+        String[] ag = allergen.split(" ");
+
     }
 
     private void viewDishDetail(String dishId) {
@@ -699,19 +884,56 @@ public class CanteenOrderingSystem extends Application {
         viewMerchantAccountInfoStatement.close();
     }
 
-    private void sendMessage(String message) {
+    static private final String sendMessageString = "INSERT INTO 消息(内容,用户_id) VALUES(?,?);";
+    private void sendMessage(String message, String userID) throws SQLException{
+        PreparedStatement sendMessageStatement = connection.prepareStatement(sendMessageString);
+        sendMessageStatement.setString(1, message); 
+        sendMessageStatement.setInt(2, Integer.parseInt(userID));
+        sendMessageStatement.executeUpdate();
         outputArea.setText("Message sent successfully: " + message);
     }
 
+    static private final String getCategoryListString = "SELECT 名称 FROM 类别;";
     private List<String> getCategoryList(){
-        List<String> list = new ArrayList<>();
-        //todo
-        return list;
+        try{
+            List<String> list = new ArrayList<>();
+            Statement getCategoryListStatement = connection.createStatement();
+            ResultSet res = getCategoryListStatement.executeQuery(getCategoryListString);
+            while(res.next()){
+                list.add(res.getString("名称"));
+            }
+            return list;
+        }catch(SQLException e1){
+            System.out.println(e1);
+            return null;
+        }
+    }
+    
+    static private final String getCategoryIdString = "SELECT id FROM 类别 WHERE 名称=?;";
+    private int getCategoryId(String categoryName)throws SQLException{
+        PreparedStatement getCategoryStatement = connection.prepareStatement(getCategoryIdString);
+        getCategoryStatement.setString(1, categoryName);
+        ResultSet res = getCategoryStatement.executeQuery();
+        if(!res.isBeforeFirst())
+            return -1;
+        res.next();
+        return res.getInt("id");
     }
 
-    static private String getMerchantIDSTring = "SELECT id FROM 商户 WHERE 名称=?;";
+    static private final String getCategoryNameString = "SELECT 名称 FROM 类别 WHERE id=?;";
+    private String getCategoryName(int categoryID)throws SQLException{
+        PreparedStatement getCategoryNameStatement = connection.prepareStatement(getCategoryNameString);
+        getCategoryNameStatement.setInt(1, categoryID);
+        ResultSet res = getCategoryNameStatement.executeQuery();
+        if(!res.isBeforeFirst())
+            return null;
+        res.next();
+        return res.getString("名称");
+    }
+    
+    static private String getMerchantIDString = "SELECT id FROM 商户 WHERE 名称=?;";
     private int getMerchantID(String merchantName)throws Exception{
-        PreparedStatement getMerchantIDStatement = connection.prepareStatement(getMerchantIDSTring);
+        PreparedStatement getMerchantIDStatement = connection.prepareStatement(getMerchantIDString);
         getMerchantIDStatement.setString(1, merchantName);
         ResultSet res = getMerchantIDStatement.executeQuery();
         if(!res.isBeforeFirst())
@@ -731,14 +953,53 @@ public class CanteenOrderingSystem extends Application {
         return res.getInt("id");
     }
 
-    private void createDish(String name, String merchantID, boolean isSpecial, String description, String price, String imageId, String category) {
-        outputArea.appendText("创建新菜品: 名称=" + name + ", 主打菜=" + isSpecial + ", 描述=" + description + ", 价格=" + price + ", 图片ID=" + imageId + ", 类别=" + category + "\n");
-        // 此处添加创建新菜品的逻辑
+    static private String createCategoryString = "INSERT INTO 类别(名称) VALUES(?);";
+    private void createCategory(String categoryName)throws SQLException{
+        PreparedStatement createCategoryStatement = connection.prepareStatement(createCategoryString);
+        createCategoryStatement.setString(1, categoryName);
+        createCategoryStatement.executeUpdate();
+        createCategoryStatement.close();
+    }
+    
+    static private String getDishIDString = "SELECT id FROM 菜品 WHERE 名称=?;";
+    private int getDishID(String dishName)throws SQLException{
+        PreparedStatement getDishIDStatement = connection.prepareStatement(getDishIDString);
+        getDishIDStatement.setString(1, dishName);
+        ResultSet res = getDishIDStatement.executeQuery();
+        if(!res.isBeforeFirst())
+            return -1;
+        res.next();
+        return res.getInt("id");
+    }
+    
+    static private String createDishString = "INSERT INTO 菜品(名称,是否主打菜,描述,价格,图片编号,类别_id) VALUES(?,?,?,?,?,?);";
+    static private String createDishMerchantString = "INSERT INTO 菜品属于商户(菜品_id,商户_id) VALUES(?,?);";
+    private void createDish(String name, String merchantID, boolean isSpecial, String description, String price, String imageId, String category, String allergens) throws SQLException{
+        if(getCategoryId(category)==-1)
+            createCategory(category);
+        int categoryID = getCategoryId(category);
+        PreparedStatement createDishStatement = connection.prepareStatement(createDishString);
+        createDishStatement.setString(1, name);
+        createDishStatement.setBoolean(2, isSpecial);
+        createDishStatement.setString(3, description);
+        createDishStatement.setDouble(4, Double.parseDouble(price));
+        createDishStatement.setDouble(5, Integer.parseInt(imageId));
+        createDishStatement.setInt(6, categoryID);
+        createDishStatement.executeUpdate();
+        createDishStatement.close();
+
+        PreparedStatement createDishMerchantStatement = connection.prepareStatement(createDishMerchantString);
+        createDishMerchantStatement.setInt(1, getDishID(name));
+        createDishMerchantStatement.setInt(2, Integer.parseInt(merchantID));
+        createDishMerchantStatement.executeUpdate();
+        createDishMerchantStatement.close();
+
+        if(allergens!=null)
+            createDishAllergens(name, allergens);
     }
     
     private void updateDish(String name, String merchantID, boolean isSpecial, String description, String price, String imageId, String category) {
-        outputArea.appendText("修改当前菜品: 名称=" + name + ", 主打菜=" + isSpecial + ", 描述=" + description + ", 价格=" + price + ", 图片ID=" + imageId + ", 类别=" + category + "\n");
-        // 此处添加修改菜品的逻辑
+        
     }
 
     
