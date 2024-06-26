@@ -2,6 +2,9 @@ import java.io.BufferedReader;
 import java.io.FileReader;
 import java.math.BigDecimal;
 import java.sql.*;
+import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -415,6 +418,23 @@ public class CanteenOrderingSystem extends Application {
         reservationTimeField.setPromptText("时间(yyyy-[m]m-[d]d hh:mm:ss)");
         Button reservationButton = new Button("预约");
         reservationButton.setOnAction(e -> reserve(reservationMerchantField.getText(), reservationTimeField.getText()));
+
+        Label reviewDishLabel = new Label("评价菜品:");
+        TextField reviewDishField = new TextField();
+        TextField reviewDishContentField = new TextField();
+        TextField reviewDishRatingField = new TextField();
+        reviewDishField.setPromptText("菜品ID");
+        reviewDishContentField.setPromptText("评价内容");
+        reviewDishRatingField.setPromptText("评分");
+        Button reviewDishButton = new Button("提交");
+        reviewDishButton.setOnAction(e -> submitDishReview(reviewDishField.getText(), reviewDishContentField.getText(), reviewDishRatingField.getText()));
+
+        grid.add(reviewDishLabel, 0, 11);
+        grid.add(reviewDishField, 1, 11);
+        grid.add(reviewDishContentField, 2, 11);
+        grid.add(reviewDishRatingField, 3, 11);
+        grid.add(reviewDishButton, 4, 11);
+
     
         outputArea = new TextArea();
         outputArea.setPrefHeight(200);
@@ -460,7 +480,7 @@ public class CanteenOrderingSystem extends Application {
         grid.add(reservationButton, 3, 10);
     
         layout.getChildren().addAll(backButton, grid, viewOrdersButton, receiveMessagesButton, outputArea);
-        return new Scene(layout, 800, 600);
+        return new Scene(layout, 900, 700);
     }
     
     
@@ -608,8 +628,6 @@ public class CanteenOrderingSystem extends Application {
         grid.setVgap(10);
         grid.setHgap(10);
 
-        outputArea = new TextArea();
-        outputArea.setPrefHeight(200);
 
         // 新增商户
         Label addMerchantLabel = new Label("新增商户:");
@@ -671,25 +689,29 @@ public class CanteenOrderingSystem extends Application {
         // 添加其余标签和字段
         Label analyzeDishLabel = new Label("分析菜品数据:");
         TextField analyzeDishField = new TextField();
-        analyzeDishField.setPromptText("菜品名称");
+        analyzeDishField.setPromptText("商户ID");
         Button analyzeDishButton = new Button("分析");
         analyzeDishButton.setOnAction(e -> analyzeDishData(analyzeDishField.getText()));
 
-        Label filterFavoritesLabel = new Label("过滤最少收藏菜品:");
+        Label filterFavoritesLabel = new Label("过滤最少销量菜品:");
         TextField filterFavoritesField = new TextField();
-        filterFavoritesField.setPromptText("最少收藏数");
+        TextField favorUserField = new TextField();
+        favorUserField.setPromptText("用户id");
+        TextField timeField = new TextField();
+        timeField.setPromptText("0-近一周;1-近一月;2-近一年");
+        filterFavoritesField.setPromptText("最少销量");
         Button filterFavoritesButton = new Button("过滤");
-        filterFavoritesButton.setOnAction(e -> filterFavorites(filterFavoritesField.getText()));
+        filterFavoritesButton.setOnAction(e -> filterFavorites(favorUserField.getText(), filterFavoritesField.getText(),Integer.parseInt(timeField.getText())));
 
         Label loyalCustomerLabel = new Label("忠实用户分析:");
         TextField loyalCustomerField = new TextField();
-        loyalCustomerField.setPromptText("商户名称");
+        loyalCustomerField.setPromptText("商户id");
         Button loyalCustomerButton = new Button("分析");
         loyalCustomerButton.setOnAction(e -> analyzeLoyalCustomers(loyalCustomerField.getText()));
 
         Label userActivityLabel = new Label("用户行为分析:");
         TextField userActivityField = new TextField();
-        userActivityField.setPromptText("时间段(YYYY-MM)");
+        userActivityField.setPromptText("时间段(YYYY-MM-DD~YYYY-MM-DD)");
         Button userActivityButton = new Button("分析");
         userActivityButton.setOnAction(e -> analyzeUserActivity(userActivityField.getText()));
 
@@ -745,7 +767,9 @@ public class CanteenOrderingSystem extends Application {
         grid.add(analyzeDishButton, 2, 4);
         grid.add(filterFavoritesLabel, 0, 5);
         grid.add(filterFavoritesField, 1, 5);
-        grid.add(filterFavoritesButton, 2, 5);
+        grid.add(favorUserField, 2, 5);
+        grid.add(timeField, 3, 5);
+        grid.add(filterFavoritesButton, 4, 5);
         grid.add(loyalCustomerLabel, 0, 6);
         grid.add(loyalCustomerField, 1, 6);
         grid.add(loyalCustomerButton, 2, 6);
@@ -763,6 +787,9 @@ public class CanteenOrderingSystem extends Application {
         grid.add(hotSellingDishLabel, 0, 13);
         grid.add(hotSellingDishField, 1, 13);
         grid.add(hotSellingDishButton, 2, 13);
+
+        outputArea = new TextArea();
+        outputArea.setPrefHeight(200);
 
         layout.getChildren().addAll(backButton, grid, outputArea);
         return new Scene(layout, 950, 700);
@@ -1148,12 +1175,30 @@ private void viewFavorites() throws SQLException {
             submitReviewStatement.setString(4, reviewContent);
             submitReviewStatement.executeUpdate();
             submitReviewStatement.close();
-            outputArea.setText("Review for merchant ID: " + merchantId + " submitted successfully.\nRating: " + rating + "\nContent: " + reviewContent);
+            outputArea.setText("对商户: " + merchantId + " 的评价已经提交成功.\n评分: " + rating + "\n评论: " + reviewContent);
         } catch (Exception e) {
             e.printStackTrace();
             outputArea.setText("An error occurred while submitting the review.");
         }
     }
+
+    static final String submitDishReviewString = "INSERT INTO 用户评价菜品 (用户_id, 菜品_id, 评分, 评价内容) VALUES (?, ?, ?, ?);";
+    private void submitDishReview(String dishId, String reviewContent, String rating) {
+        try {
+            PreparedStatement submitReviewStatement = connection.prepareStatement(submitDishReviewString);
+            submitReviewStatement.setInt(1, Integer.parseInt(currentUserId));
+            submitReviewStatement.setInt(2, Integer.parseInt(dishId));
+            submitReviewStatement.setBigDecimal(3, new BigDecimal(rating));
+            submitReviewStatement.setString(4, reviewContent);
+            submitReviewStatement.executeUpdate();
+            submitReviewStatement.close();
+            outputArea.setText("对菜品: " + dishId + " 的评价已经提交成功.\n评分: " + rating + "\n评论: " + reviewContent);
+        } catch (Exception e) {
+            e.printStackTrace();
+            outputArea.setText("An error occurred while submitting the review.");
+        }
+    }
+
 
     static final String viewPriceChangeString = "SELECT 原价格, 价格 FROM 菜品 WHERE id = ?;";
     private void viewPriceChange(String dishId) {
@@ -1163,7 +1208,7 @@ private void viewFavorites() throws SQLException {
             viewPriceChangeStatement.setInt(1, Integer.parseInt(dishId));
             ResultSet res = viewPriceChangeStatement.executeQuery();
             while (res.next()) {
-                sb.append("Original Price: ").append(res.getBigDecimal("原价格")).append(", Current Price: ").append(res.getBigDecimal("价格")).append("\n");
+                sb.append("原价格: ").append(res.getBigDecimal("原价格")).append(", 当前价格: ").append(res.getBigDecimal("价格")).append("\n");
             }
             res.close();
             viewPriceChangeStatement.close();
@@ -1183,7 +1228,7 @@ private void viewFavorites() throws SQLException {
             reserveStatement.setTimestamp(3, Timestamp.valueOf(time));
             reserveStatement.executeUpdate();
             reserveStatement.close();
-            outputArea.setText("Reservation for merchant ID: " + merchantId + " at time: " + time + " made successfully.");
+            outputArea.setText("预定商家: " + merchantId + " 时间: " + time + " 成功");
         } catch (Exception e) {
             e.printStackTrace();
             outputArea.setText("An error occurred while making the reservation.");
@@ -1211,7 +1256,7 @@ private void viewFavorites() throws SQLException {
         sendMessageStatement.setString(1, message); 
         sendMessageStatement.setInt(2, Integer.parseInt(userID));
         sendMessageStatement.executeUpdate();
-        outputArea.setText("Message sent successfully: " + message);
+        outputArea.setText("发送成功: " + message);
     }
 
     static private final String getCategoryListString = "SELECT 名称 FROM 类别;";
@@ -1376,7 +1421,7 @@ private void viewFavorites() throws SQLException {
                 updateDishImageStatement.close();
             }
     
-            outputArea.setText("Dish ID: " + id + " updated successfully.");
+            outputArea.setText("菜品ID: " + id + " 更新成功.");
         } catch (SQLException e) {
             e.printStackTrace();
             outputArea.setText("Failed to update Dish ID: " + id);
@@ -1418,7 +1463,8 @@ private void viewFavorites() throws SQLException {
         addMerchantStatement.setString(2, merchantAddress);
         addMerchantStatement.executeUpdate();
         addMerchantStatement.close();
-        outputArea.setText("商户ID: "+getMerchantID(merchantName)+"创建成功!");
+        if(outputArea!=null)
+            outputArea.setText("商户ID: "+getMerchantID(merchantName)+"创建成功!");
     }
 
     static final String deleteMerchantString = "DELETE FROM 商户 WHERE 名称=?";
@@ -1435,29 +1481,270 @@ private void viewFavorites() throws SQLException {
             outputArea.setText("商户已删除: " + merchantName);
     }
 
-    private void analyzeDishData(String dishId) {
-        outputArea.setText("TODO: Analyze dish data for dish ID: " + dishId);
+    private void analyzeDishData(String merchantId) {
+        CallableStatement stmt = null;
+        ResultSet rs = null;
+        String sql = "{CALL 某商户菜品分析(?)}";
+        try {
+            stmt = connection.prepareCall(sql);
+            stmt.setInt(1, Integer.parseInt(merchantId));
+            rs = stmt.executeQuery();
+            StringBuilder resultBuilder = new StringBuilder();
+            while (rs.next()) {
+                int dishId = rs.getInt("菜品ID");
+                String dishName = rs.getString("菜品名称");
+                double dishScore = rs.getDouble("菜品评分");
+                int totalSales = rs.getInt("菜品总销量");
+                String frequentBuyerName = rs.getString("最频繁购买者姓名");
+                int maxPurchaseCount = rs.getInt("最大购买次数");
+    
+                resultBuilder.append(String.format("Dish ID: %d, Name: %s, Score: %.2f, Total Sales: %d, Frequent Buyer: %s, Max Purchase Count: %d%n",
+                        dishId, dishName, dishScore, totalSales, frequentBuyerName, maxPurchaseCount));
+            }
+            outputArea.setText(resultBuilder.toString());
+            System.out.println(resultBuilder.toString());
+        } catch (SQLException e) {
+            throw new RuntimeException(e);
+        }
+        finally {
+            try {
+                if (rs != null) rs.close();
+                if (stmt != null) stmt.close();
+            } catch (SQLException se) {
+                se.printStackTrace();
+            }
+        }
     }
 
-    private void filterFavorites(String minFavorites) {
-        outputArea.setText("TODO: Filter dishes with at least " + minFavorites + " favorites.");
+    
+
+    private void filterFavorites(String User_id, String minFavorites, int period) {
+        CallableStatement stmt = null;
+        ResultSet rs = null;
+        String query = "{CALL 用户收藏菜品销量分析(?, ?, ?)}";
+
+        try {
+            stmt = connection.prepareCall(query);
+            stmt.setInt(1, Integer.parseInt(User_id));
+            stmt.setString(2, minFavorites);
+            stmt.setInt(3, period);
+
+            boolean hasResults = stmt.execute();
+            StringBuilder resultText = new StringBuilder();
+
+            while (hasResults) {
+                rs = stmt.getResultSet();
+
+                while (rs.next()) {
+
+                    String dishName = rs.getString("菜品名称");
+                    int totalSales = rs.getInt("总销量");
+
+                    resultText.append("热销菜品名称: ").append(dishName)
+                            .append(", 总销量: ").append(totalSales).append("\n");
+                }
+                hasResults = stmt.getMoreResults();
+            }
+            System.out.println(resultText.toString());
+            outputArea.setText(resultText.toString());
+        } catch (SQLException e) {
+            throw new RuntimeException(e);
+        } finally {
+            try {
+                if (rs != null) rs.close();
+                if (stmt != null) stmt.close();
+            } catch (SQLException se) {
+                se.printStackTrace();
+            }
+        }
     }
 
     private void analyzeLoyalCustomers(String merchantId) {
-        outputArea.setText("TODO: Analyze loyal customers for merchant ID: " + merchantId);
+        CallableStatement stmt = null;
+        ResultSet rs = null;
+        String query = "{CALL 商户忠实粉丝消费分布(?)}";
+
+        try {
+            stmt = connection.prepareCall(query);
+            stmt.setInt(1, Integer.parseInt(merchantId));
+
+            boolean hasResults = stmt.execute();
+            StringBuilder resultText = new StringBuilder();
+
+            while (hasResults) {
+                rs = stmt.getResultSet();
+
+                while (rs.next()) {
+
+                    String dishName = rs.getString("菜品名称");
+                    int totalSales = rs.getInt("购买次数");
+
+                    resultText.append("菜品名称: ").append(dishName)
+                            .append(", 购买次数: ").append(totalSales).append("\n");
+                }
+                hasResults = stmt.getMoreResults();
+            }
+            System.out.println(resultText.toString());
+            outputArea.setText(resultText.toString());
+        } catch (SQLException e) {
+            throw new RuntimeException(e);
+        } finally {
+            try {
+                if (rs != null) rs.close();
+                if (stmt != null) stmt.close();
+            } catch (SQLException se) {
+                se.printStackTrace();
+            }
+        }
     }
 
     private void analyzeUserActivity(String timeRange) {
-        outputArea.setText("TODO: Analyze user activity for time range: " + timeRange);
+        CallableStatement stmt = null;
+        ResultSet rs = null;
+        String query = "{CALL 用户活跃度分析(?)}";
+
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd");
+
+        // 拆分输入字符串，获取开始日期和结束日期
+        String[] dates = timeRange.split("~");
+        LocalDate startDate = LocalDate.parse(dates[0].trim(), formatter);
+        LocalDate endDate = LocalDate.parse(dates[1].trim(), formatter);
+        long period = ChronoUnit.DAYS.between(startDate, endDate);
+        try {
+            stmt = connection.prepareCall(query);
+            stmt.setString(1, timeRange);
+
+            boolean hasResults = stmt.execute();
+            StringBuilder resultText = new StringBuilder();
+
+            while (hasResults) {
+                rs = stmt.getResultSet();
+
+                while (rs.next()) {
+
+                    int total = rs.getInt("总点餐次数");
+
+                    resultText.append("总点餐次数").append(total).append("\n");
+
+                    if (total > period / 3) resultText.append("活跃").append(total).append("\n");
+                    else resultText.append("不活跃").append(total).append("\n");
+                }
+                System.out.println(resultText.toString());
+                hasResults = stmt.getMoreResults();
+            }
+            outputArea.setText(resultText.toString());
+        } catch (SQLException e) {
+            throw new RuntimeException(e);
+        } finally {
+            try {
+                if (rs != null) rs.close();
+                if (stmt != null) stmt.close();
+            } catch (SQLException se) {
+                se.printStackTrace();
+            }
+        }
     }
 
 
     private void analyzeUserGroup(String role, String ageRange, String gender) {
-        outputArea.appendText("用户群体特征分析: 角色=" + role + ", 年龄范围=" + ageRange + ", 性别=" + gender + "\n");
-        // 此处添加用户群体特征分析的逻辑
+        CallableStatement stmt = null;
+        ResultSet rs = null;
+        String query = "{CALL 用户群体特征分析(?, ?, ?)}";
+
+        if(role.equals("老师"))
+            role = "T";
+        else if(role.equals("学生"))    
+            role = "S";
+        else
+            role = "E";
+
+        try {
+            stmt = connection.prepareCall(query);
+            stmt.setString(1, role);
+            stmt.setString(2, ageRange);
+            stmt.setString(3, gender);
+
+            boolean hasResults = stmt.execute();
+            StringBuilder resultText = new StringBuilder();
+
+            while (hasResults) {
+                rs = stmt.getResultSet();
+
+                while (rs.next()) {
+
+                    String dishName = rs.getString("菜品名称");
+                    int orderCount = rs.getInt("点餐次数");
+
+                    resultText.append("菜品: ").append(dishName)
+                            .append(", 点餐次数: ").append(orderCount).append("\n");
+                }
+                hasResults = stmt.getMoreResults();
+            }
+            System.out.println(resultText.toString());
+            outputArea.setText(resultText.toString());
+        } catch (SQLException e) {
+            throw new RuntimeException(e);
+        } finally {
+            try {
+                if (rs != null) rs.close();
+                if (stmt != null) stmt.close();
+            } catch (SQLException se) {
+                se.printStackTrace();
+            }
+        }
     }
 
     private void analyzeHotSellingDishes(String merchantId) {
-        outputArea.setText("TODO: Analyze hot selling dishes for merchant ID: " + merchantId);
+        CallableStatement stmt = null;
+        ResultSet rs = null;
+        String query = "{CALL 商户热销菜品分析(?)}";
+
+        try {
+            stmt = connection.prepareCall(query);
+            stmt.setInt(1, Integer.parseInt(merchantId)); // 设置商户ID参数
+
+            boolean hasResults = stmt.execute();
+            StringBuilder resultText = new StringBuilder();
+            int flag = 0;
+            int i = 1;
+
+            while (hasResults) {
+                rs = stmt.getResultSet();
+
+                while (rs.next()) {
+                    if (flag == 0) {
+                        String merchantName = rs.getString("商户名称");
+                        resultText.append("商户名称: ").append(merchantName).append("\n");
+                        flag = 1;
+                    }
+                    int dishId = rs.getInt("热销菜品_id");
+                    String dishName = rs.getString("热销菜品名称");
+                    int totalSales = rs.getInt("总销量");
+
+                    resultText.append(i).append("   ")
+                            .append("热销菜品 ID: ").append(dishId)
+                            .append(", 热销菜品名称: ").append(dishName)
+                            .append(", 总销量: ").append(totalSales).append("\n");
+                }
+            System.out.println(resultText.toString());
+                hasResults = stmt.getMoreResults();
+            }
+
+            // 将结果显示在outputArea中
+            System.out.println(resultText.toString());
+            outputArea.setText(resultText.toString());
+        } catch (SQLException e) {
+            throw new RuntimeException(e);
+        }
+        finally {
+            try {
+                if (rs != null) rs.close();
+                if (stmt != null) stmt.close();
+            } catch (SQLException se) {
+                se.printStackTrace();
+            }
+        }
+
     }
+
 }
